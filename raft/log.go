@@ -62,7 +62,7 @@ func newLog(storage Storage) *RaftLog {
 	lastIndex, _ := storage.LastIndex()
 	firstIndex, _ := storage.FirstIndex()
 	entries, _ := storage.Entries(firstIndex, lastIndex+1)
-	//hardState, _, _ := storage.InitialState()
+	hardState, _, _ := storage.InitialState()
 
 	snapshot, _ := storage.Snapshot()
 	log := &RaftLog{
@@ -72,7 +72,7 @@ func newLog(storage Storage) *RaftLog {
 		entries:         entries,
 		pendingSnapshot: &snapshot,
 		firstIndex:      firstIndex,
-		committed:       None,
+		committed:       hardState.Commit,
 	}
 	return log
 }
@@ -90,10 +90,10 @@ func (l *RaftLog) unstableEntries() []pb.Entry {
 	if len(l.entries) <= 0 {
 		return nil
 	}
-	//return l.entries[l.stabled-l.FirstIndex()+1:]
 	if l.stabled-l.FirstIndex()+1 < 0 || l.stabled-l.FirstIndex()+1 > uint64(len(l.entries)) {
 		return nil
 	}
+
 	ents, _ := l.Entries(l.stabled+1, l.LastIndex()+1)
 	//DPrintf("stabled-%d last-%d", l.stabled, l.LastIndex())
 
@@ -106,7 +106,10 @@ func (l *RaftLog) nextEnts() (ents []pb.Entry) {
 	if len(l.entries) <= 0 {
 		return nil
 	}
-	ents, _ = l.Entries(l.applied+1, l.committed+1)
+	if l.applied+1 == l.committed {
+		return []pb.Entry{l.entries[l.committed-l.FirstIndex()]}
+	}
+	ents, _ = l.Entries(l.applied+1, l.committed)
 	return ents
 }
 
