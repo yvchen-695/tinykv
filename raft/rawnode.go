@@ -160,6 +160,7 @@ func (rn *RawNode) Ready() Ready {
 		Entries:          rn.Raft.RaftLog.unstableEntries(),
 		CommittedEntries: rn.Raft.RaftLog.nextEnts(),
 		Messages:         rn.Raft.msgs,
+		Snapshot:         pb.Snapshot{},
 	}
 	//DPrintf("ready len-%d", len(ready.CommittedEntries))
 	//for _, entry := range ready.CommittedEntries {
@@ -176,7 +177,7 @@ func (rn *RawNode) Ready() Ready {
 		ready.HardState = hardState
 	}
 
-	//rn.Raft.msgs = make([]pb.Message, 0)
+	rn.Raft.msgs = make([]pb.Message, 0)
 
 	return ready
 }
