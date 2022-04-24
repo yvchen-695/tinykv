@@ -167,7 +167,10 @@ func newRaft(c *Config) *Raft {
 		panic(err.Error())
 	}
 	// Your Code Here (2A).
-	hardState, _, _ := c.Storage.InitialState()
+	hardState, confState, _ := c.Storage.InitialState()
+	if c.peers == nil {
+		c.peers = confState.Nodes
+	}
 	r := &Raft{
 		id:               c.ID,
 		Prs:              make(map[uint64]*Progress),
@@ -179,10 +182,14 @@ func newRaft(c *Config) *Raft {
 		Term:             hardState.Term,
 		State:            StateFollower,
 	}
+
+	if c.Applied > 0 {
+		r.RaftLog.applied = c.Applied
+	}
 	//DPrintf("NewRaft-%d vote-%d", r.id, r.Vote)
 	for _, peer := range c.peers {
 		if peer == r.id {
-			r.Prs[peer] = &Progress{Next: r.RaftLog.LastIndex() + 1, Match: r.RaftLog.LastIndex()}
+			r.Prs[peer] = &Progress{Next: r.RaftLog.LastIndex() + 1}
 		} else {
 			r.Prs[peer] = &Progress{Next: r.RaftLog.LastIndex() + 1}
 		}
@@ -501,6 +508,8 @@ func (r *Raft) handleRequestVote(m pb.Message) {
 	if m.Term > r.Term {
 		r.becomeFollower(m.Term, None)
 	}
+	r.electionElapsed = 0
+	r.randomElectionTimeout = r.electionTimeout + rand.Intn(r.electionTimeout)
 
 	lastLogIndex := r.RaftLog.LastIndex()
 	lastLogTerm, _ := r.RaftLog.Term(lastLogIndex)
@@ -514,8 +523,6 @@ func (r *Raft) handleRequestVote(m pb.Message) {
 	//DPrintf("rf-%d vote for rf-%d", m.To, m.From)
 	r.Term = m.Term
 	r.Vote = m.From
-	r.electionElapsed = 0
-	r.randomElectionTimeout = r.electionTimeout + rand.Intn(r.electionTimeout)
 	r.sendRequestVoteResponse(m.From, false)
 }
 
